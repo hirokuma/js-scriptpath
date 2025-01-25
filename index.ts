@@ -3,6 +3,8 @@ import * as bitcoin from "bitcoinjs-lib";
 import { Taptree } from 'bitcoinjs-lib/src/types';
 import { LEAF_VERSION_TAPSCRIPT } from 'bitcoinjs-lib/src/payments/bip341.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
+import { PsbtInput } from 'bip174/src/lib/interfaces.js';
 import { randomBytes } from 'crypto';
 import { ECPairFactory, ECPairAPI } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -129,6 +131,11 @@ bitcoin.initEccLib(ecc);
   // create redeem transaction
   const inputSats = res.vout[voutIndex].value * 100_000_000;
   const psbt = new bitcoin.Psbt({ network });
+  const tapLeafScript = {
+    leafVersion: hash_lock_redeem.redeemVersion!,
+    script: hash_lock_redeem.output!,
+    controlBlock: redeemScriptPath.witness![redeemScriptPath.witness!.length - 1],
+  };
   psbt.addInput({
     hash: txid,
     index: voutIndex,
@@ -136,13 +143,7 @@ bitcoin.initEccLib(ecc);
       value: inputSats,
       script: redeemScriptPath.output!,
     },
-    tapLeafScript: [
-      {
-        leafVersion: hash_lock_redeem.redeemVersion!,
-        script: hash_lock_redeem.output!,
-        controlBlock: redeemScriptPath.witness![redeemScriptPath.witness!.length - 1]
-      },
-    ],
+    tapLeafScript: [tapLeafScript],
   });
 
   const recvAddr = await rpc.request('getnewaddress') as rpc.GetNewAddress;
@@ -152,7 +153,25 @@ bitcoin.initEccLib(ecc);
   });
 
   psbt.signInput(0, keyAlice);
-  psbt.finalizeInput(0);
+
+  const myFinalizer = (
+    _inputIndex: number, // Which input is it?
+    input: PsbtInput, // The PSBT input contents
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tapLeafHashToFinalize?: Buffer, // Only finalize this specific leaf
+  ) => {
+    if (!input.tapScriptSig) {
+      throw Error('missing input');
+    }
+    const witness = [
+      input.tapScriptSig[0].signature,
+    ].concat(tapLeafScript.script).concat(tapLeafScript.controlBlock);
+
+    return {
+      finalScriptWitness: witnessStackToScriptWitness(witness),
+    };
+  };
+  psbt.finalizeInput(0, myFinalizer);
 
   // broadcast redeem transaction
   const tx = psbt.extractTransaction();
