@@ -3,6 +3,22 @@ import ky from 'ky';
 import _config from './config.json' assert { type: 'json' };
 const config: Config = _config;
 
+export type GetNewAddress = string;
+export type GenerateToAddress = string[];
+export type GetRawTransaction = {
+  confirmations?: number;
+  vout: [
+    {
+      value: number;
+      n: number;
+      scriptPubKey: {
+        address: string;
+      },
+    },
+  ],
+};
+export type SendToAddress = string;
+
 interface Config {
     network: string;
     rpcuser: string;
@@ -47,7 +63,7 @@ export async function request(method: string, ...params: Params[]) {
         }
         return res.result;
     } catch (e) {
-        console.error(`bitcoinrpc.request error: ${e}`);
+        console.error(`bitcoinrpc.request error: method=${method}, error=${JSON.stringify(e)}`);
         throw e;
     }
 }
