@@ -48,7 +48,9 @@ bitcoin.initEccLib(ecc);
 
 
   // internal key
-  const internalKey = bip32.fromSeed(rng(64), network);
+  // const internalKey = bip32.fromSeed(rng(64), network);
+  const seed = Buffer.from('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff', 'hex');
+  const internalKey = bip32.fromSeed(seed, network);
 
   // script 1
   // const preimage = Buffer.from('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff', 'hex');
@@ -80,6 +82,7 @@ bitcoin.initEccLib(ecc);
     scriptTree,
     network
   });
+  console.log(`internal pubkey: ${toXOnly(internalKey.publicKey).toString('hex')}`);
   const scriptPathAddr = scriptPath.address!;
 
   // send to address
