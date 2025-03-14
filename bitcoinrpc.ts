@@ -1,6 +1,6 @@
 import ky from 'ky';
 
-import _config from './config.json' assert { type: 'json' };
+import _config from './config.json' with { type: 'json' };
 const config: Config = _config;
 
 export type GetNewAddress = string;
