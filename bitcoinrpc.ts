@@ -34,7 +34,7 @@ type RpcResponse = {
 
 const RPCID = 'p2tr';
 
-type Params = number | string | boolean;
+type Params = number | string | boolean | string[];
 export async function request(method: string, ...params: Params[]) {
     const body = {
         jsonrpc: '2.0',
@@ -50,7 +50,8 @@ export async function request(method: string, ...params: Params[]) {
                         request.headers.set('Authorization', 'Basic ' + btoa(`${config.rpcuser}:${config.rpcpass}`));
                     }
                 ]
-            }
+            },
+            timeout: false,
         });
         const res = await api.post(`http://localhost:${config.rpcport}`, {
             json: body,
