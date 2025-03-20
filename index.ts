@@ -9,6 +9,7 @@ import * as ecc from 'tiny-secp256k1';
 import * as tools from 'uint8array-tools';
 
 import * as rpc from './bitcoinrpc.js';
+import { exit } from "process";
 
 
 async function sleepMsec(msec: number) {
@@ -21,6 +22,15 @@ const network = bitcoin.networks.regtest;
 const ECPair: ECPairAPI = ECPairFactory(ecc);
 
 bitcoin.initEccLib(ecc);
+
+(async () => {
+  const balance = await rpc.request('getbalance') as number;
+  console.log(`balance = ${balance}`);
+  if (balance < 0.01) {
+    console.log('Your balance is too small.');
+    exit(1);
+  }
+})();
 
 (async () => {
   let res;
@@ -103,6 +113,10 @@ bitcoin.initEccLib(ecc);
   }
   const recvAddr = await rpc.request('getnewaddress') as rpc.GetNewAddress;
   const inputSats = res.vout[voutIndex].value * 100_000_000;
+  const outpoint = {
+    address: recvAddr,
+    value: inputSats - FEE,
+  };
 
   //
   // key path
@@ -120,11 +134,7 @@ bitcoin.initEccLib(ecc);
       tapInternalKey: toXOnly(internalKey.publicKey),
       tapMerkleRoot: scriptPath.hash,
     });
-
-    psbt.addOutput({
-      address: recvAddr,
-      value: inputSats - FEE,
-    });
+    psbt.addOutput(outpoint);
 
     const tweakedSigner = internalKey.tweak(
       bitcoin.crypto.taggedHash(
@@ -175,12 +185,7 @@ bitcoin.initEccLib(ecc);
       },
       tapLeafScript: [tapLeafScript],
     });
-
-    psbt.addOutput({
-      address: recvAddr,
-      value: inputSats - FEE,
-    });
-
+    psbt.addOutput(outpoint);
     psbt.signInput(0, keyBob);
 
     // https://github.com/bitcoinjs/bitcoinjs-lib/blob/ad82549088d89f50587f14fe7a883f24d4438324/test/integration/taproot.spec.ts#L763-L793
@@ -245,12 +250,7 @@ bitcoin.initEccLib(ecc);
         },
         tapLeafScript: [tapLeafScript],
       });
-
-      psbt.addOutput({
-        address: recvAddr,
-        value: inputSats - FEE,
-      });
-
+      psbt.addOutput(outpoint);
       psbt.signInput(0, keyAlice);
 
       const myFinalizer = (
